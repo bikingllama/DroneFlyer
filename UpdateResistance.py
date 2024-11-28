@@ -63,3 +63,5 @@ def UpdateResistance(VnV, Stick, Axis, Value):
 UpdateResistance(1,1,0,1500)
 
 UpdateResistance(0,1,1,12000)
+
+# Updatetester
