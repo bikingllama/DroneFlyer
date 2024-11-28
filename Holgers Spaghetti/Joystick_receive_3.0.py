@@ -164,5 +164,5 @@ tcp_thread.join()
 
 # finally:
 # Clean up GPIO settings
-#    GPIO.cleanup()
+GPIO.cleanup()
 #     print("GPIO cleanup completed")
