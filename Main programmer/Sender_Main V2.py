@@ -5,10 +5,11 @@ from inputs import get_gamepad
 import math
 import threading
 import inputimeout
+from pynput.keyboard import Key, Listener # For registering keyboard inputs
 
-# True if the program should be running
-global IsRunning
-IsRunning = False
+# True if the program should be sending joystick position information
+global IsSending
+IsSending = False
 
 # Define UDP settings
 IP = "10.192.95.136"  # Replace with the receiver device's IP address
@@ -166,21 +167,23 @@ joy = XboxController(10000.0)
 
 # UDP joystick sender function
 def UDPfunc():
-    while IsRunning:
-        # Read the joystick and button states
-        data = joy.read()
+    while True:
+        if IsSending:
+            # Read the joystick and button states
+            data = joy.read()
 
-        # Convert data to JSON string for sending over UDP
-        message = json.dumps(data)
+            # Convert data to JSON string for sending over UDP
+            message = json.dumps(data)
 
-        # Send the JSON message via UDP
-        sock.sendto(message.encode('utf-8'), (IP, UDP_PORT))
+            # Send the JSON message via UDP
+            sock.sendto(message.encode('utf-8'), (IP, UDP_PORT))
 
-        print(f"Sent: {message}")  # Debugging: print the sent data
+            print(f"Sent: {message}")  # Debugging: print the sent data
 
-        # Delay between each send to avoid flooding the network
-        time.sleep(0.1)  # Adjust delay as needed
-
+            # Delay between each send to avoid flooding the network
+            time.sleep(0.1)  # Adjust delay as needed
+        else:
+            time.sleep(0.1)
 
 
 
@@ -209,50 +212,62 @@ def TCP_send_command(command):
 
 
 
-# TCP input registration
-def TCPinput():
-    while IsRunning:
-        # Time to wait for each command
-        # Presets input to be blank
-        CmdIn = "Nothing"
-        try:
-            CmdIn = inputtimeout(prompt='Ready to send TCP command')
-        except TimeoutOccured:
-            CmdIn = "Nothing"
-        if CmdIn != "Nothing":
-            try:
-                TCP_send_command(commands(CmdIn))
-            except Exception as Excp:
-                print("Exception! Wrong input; " + Excp)
-
-
 
         
 
 
 
-
 # Command dictionary
 commands = {
-    "start_charging": 1,
-    "stop_charging": 2,
-    "turn_on_controller": 3,
-    "turn_off_controller": 4,
-    "perform_special_task": 9,
+    '1': "turn_on_controller",
+    '2': "turn_off_controller",
+    '3': "turn_on_drone",
+    '4': "turn_off_drone",
+    'n': "start_charging",
+    'm': "stop_charging",
+    'x': "start_controls",
+    "c": "stop_controls",
 }
 
 
 
 
-# Start both UDP and TCP senders in separate threads
+# Start UDP thread
 udp_thread = threading.Thread(target=UDPfunc)
-tcp_thread = threading.Thread(target=TCPinput)
 
 udp_thread.start()
-tcp_thread.start()
 
 udp_thread.join()
-tcp_thread.join()
 
+
+1
+# Start keyboard listener
+def on_press(key):
+    print('{0} pressed'.format(
+        key))
+    print(key.char)
+    if key.char in commands:
+        print("Sent command: {}".format(commands[key.char]))
+        TCP_send_command(key.char)
+    else:
+        print("Uknown key pressed: {0}".format(key))
+
+    if key.char == 'x':
+        IsSending = True
+    
+    if key.char == 'c':
+        IsSending = False
+
+    print("IsSending is " + str(IsSending))
+
+def on_release(key):
+    nothing = 1
+    
+
+# Collect events until released
+with Listener(
+        on_press=on_press,
+        on_release=on_release) as listener:
+    listener.join()
 
 
