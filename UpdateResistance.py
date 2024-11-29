@@ -1,6 +1,18 @@
 
-# import spidev
+import spidev
 import numpy as np
+import RPi.GPIO as GPIO
+
+# Define stick CS's
+CSL = 31
+CSR = 29
+
+# Set CS as output and initilazise
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(CSL, GPIO.OUT, initial=GPIO.HIGH)
+GPIO.setup(CSR, GPIO.OUT, initial=GPIO.HIGH)
+
+
 
 # This function updates the value for one of the resistors.
 # VnV determines if it writes to volatile or nonvolatile memory, 0 is volatile.
@@ -29,7 +41,7 @@ def UpdateResistance(VnV, Stick, Axis, Value):
     # Converts value to integer to set pot to. Arbitratily rounded down
     # R_WB = R_AB*N/256+RW
     # N = (R_WB-RW)*256/R_AB
-    N = (np.floor((Value-75)*256/10000)).astype(int)
+    N = int(np.floor((Value-75)*256/10000))
 
     # Checks if value for N is within range (0-256)
     if (N > 256 or N < 0):
@@ -44,24 +56,55 @@ def UpdateResistance(VnV, Stick, Axis, Value):
 
     # Sets bit 16 and 9 to zero
     Byte = Byte & 0x7EFF
+    
+    # Splits byte into two eights
+    Byte1 = Byte >> 8
+    Byte2 = Byte & 0b11111111
 
-    '''
-    Sends output
-    try
-        comm = spi.open(0,Stick)
-        comm.bits_per_word = 16
-        comm.max_speed_hz = 10*10^6
-        comm.writebytes(Byte)
-        spi.close
+    if not Stick:
+        CurrOutPin = CSL
+    else:
+        CurrOutPin = CSR
+        
+    # Initialize response
+    Response = 0b1
+    
+    #Sends output
+    #try:
+    comm = spidev.SpiDev(0,0)
+    comm.max_speed_hz = 10^6
+    comm.mode = 0
+    print(Byte1, Byte2)
+    GPIO.output(CurrOutPin, GPIO.LOW)
+    comm.writebytes([Byte1])
+    comm.writebytes([Byte2])
+    Response = comm.readbytes(2)
+    GPIO.output(CurrOutPin, GPIO.HIGH)
+    comm.close
+    #except Exception as Excp:
+    #print("Exception when sending:\n")
+    #print(Excp)
+    print("Outputpin is {}".format(CurrOutPin))
+        
+    # Prints response
+    if Response != 0b1:
+        print("Recieved response:\n")
+        print(Response)
 
-    '''
+    # Sets both to be high to be sure
+    GPIO.output(CSL, GPIO.HIGH)
+    GPIO.output(CSR, GPIO.HIGH)
+    
+    
     print(N)
     print("{:016b}".format(Byte))
     print("\n\n\n\n")
 
 
-UpdateResistance(1,1,0,1500)
+UpdateResistance(0,0,0,6000)
 
-UpdateResistance(0,1,1,12000)
+#UpdateResistance(1,1,0,1500)
+
+#UpdateResistance(0,1,1,12000)
 
 # Updatetester
