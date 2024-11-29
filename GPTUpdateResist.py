@@ -88,8 +88,7 @@ def set_wiper(address, value):
 	cmd = CMD_WRITE | address  # Combine command and address
 	print("First byte is {:08b} & second byte is {:08b}".format(cmd, value))
 	GPIO.output(31, GPIO.LOW)
-	#spi.xfer2([cmd, value])    # Send 2-byte SPI command
-	spi.xfer2([0x00,0x00])
+	spi.xfer2([cmd, value])    # Send 2-byte SPI command
 	GPIO.output(31, GPIO.HIGH)
 	print(f"Set wiper {address} to {value}")
  
