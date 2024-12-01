@@ -1,6 +1,6 @@
 
 import spidev
-#import numpy as np
+import numpy as np
 import RPi.GPIO as GPIO
 import time
 
@@ -16,7 +16,7 @@ GPIO.setup(CSR, GPIO.OUT, initial=GPIO.HIGH)
 # Setup SPI
 spi = spidev.SpiDev()
 spi.open(0, 0)
-spi.max_speed_hz = 10**7
+spi.max_speed_hz = 10**6
 
 
 # This function updates the value for one of the resistors.
