@@ -145,13 +145,24 @@ def UpdateResistance(VnV, Stick, Axis, Value):
 
 
 # Define functions for the TCP actions
-def turn_on_controller():
+def turn_on_controller_pwr():
     GPIO.output(CtrPwP, GPIO.HIGH)
     print("Controller turned on (not implemented!)")
 
-def turn_off_controller():
+def turn_off_controller_pwr():
     GPIO.output(CtrPwrP, GPIO.LOW)
     print("Controller turned off (not implemented!)")
+    
+    
+def turn_on_controller():
+    # First a short press, then a long
+    GPIO.output(P8, GPIO.HIGH)
+    time.sleep(0.2)
+    GPIO.output(P8, GPIO.LOW)
+    time.sleep(0.5)
+    GPIO.output(P8, GPIO.HIGH)
+    time.sleep(2)
+    GPIO.output(P8, GPIO.LOW)
 
 def turn_on_drone():
     print("Drone turned on (not implemented!)")
@@ -197,9 +208,11 @@ def perform_special_task():
 # Map numbers to functions
 # Command dictionary
 commands = {
-    1: "turn_on_controller",
-    2: "turn_off_controller",
-    3: "turn_on_drone",
+    1: "turn_on_controller_pwr",
+    2: "turn_off_controller_pwr",
+    3: "turn_on_controller",
+    3: "turn_off_controller",
+    4: "turn_on_drone",
     4: "turn_off_drone",
     11: "start_charging",
     12: "stop_charging",

@@ -219,10 +219,12 @@ def TCP_send_command(command):
 
 # Command dictionary
 commands = {
-    '1': "turn_on_controller",
-    '2': "turn_off_controller",
-    '3': "turn_on_drone",
-    '4': "turn_off_drone",
+    'w': "turn_on_controller_pwr",
+    'e': "turn_off_controller_pwr",
+    't': "turn_on_controller",
+    'y': "turn_off_controller",
+    'o': "turn_on_drone",
+    'p': "turn_off_drone",
     'n': "start_charging",
     'm': "stop_charging",
     'x': "start_controls",
@@ -240,7 +242,7 @@ udp_thread.start()
 udp_thread.join()
 
 
-1
+
 # Start keyboard listener
 def on_press(key):
     print('{0} pressed'.format(
