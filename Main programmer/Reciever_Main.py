@@ -145,30 +145,32 @@ def UpdateResistance(VnV, Stick, Axis, Value):
 
 
 # Define functions for the TCP actions
-def turn_on_controller_pwr():
+def func1():
+    # Turns on power for controller
     GPIO.output(CtrPwP, GPIO.HIGH)
     print("Controller turned on (not implemented!)")
 
-def turn_off_controller_pwr():
+def func2():
+    # Turns off power for controller
     GPIO.output(CtrPwrP, GPIO.LOW)
     print("Controller turned off (not implemented!)")
     
     
-def turn_on_controller():
+def func3():
+    # Turns on and off controller
     # First a short press, then a long
+    print("Func3 ran")
     GPIO.output(P8, GPIO.HIGH)
-    time.sleep(0.2)
+    time.sleep(0.55)
     GPIO.output(P8, GPIO.LOW)
     time.sleep(0.5)
     GPIO.output(P8, GPIO.HIGH)
-    time.sleep(2)
+    time.sleep(3)
     GPIO.output(P8, GPIO.LOW)
 
-def turn_on_drone():
+def func4():
+    # Turns on/off drone (battery)
     print("Drone turned on (not implemented!)")
-
-def turn_off_drone():
-    print("Drone turned off (not implemented!)")
 
 def start_charging():
     # This function starts charging the drone. We set the board pin 20 high, in order to flip a bistable relay.
@@ -182,7 +184,7 @@ def start_charging():
    #     GPIO.output(charging_PIN, GPIO.LOW)  # Turn the pin OFF (charging stops)
    # except Exception as e:
     #    print(f"Error occurred while controlling the relay: {e}")
-    print("Start Charging Drone")
+    print("Start Charging Drone (not implemented)")
 
 
 def stop_charging():
@@ -197,10 +199,10 @@ def stop_charging():
     #      GPIO.output(uncharging_PIN, GPIO.LOW)  # Turn the pin OFF (uncharging stops)
     # except Exception as e:
     #    print(f"Error occurred while controlling the relay: {e}")
-    print("Stop Charging Drone")
+    print("Stop Charging Drone (not implemented)")
 
 def perform_special_task():
-    print("Performing other task")
+    print("Performing other task (not implemented)")
 
 
 
@@ -208,16 +210,16 @@ def perform_special_task():
 # Map numbers to functions
 # Command dictionary
 commands = {
-    1: "turn_on_controller_pwr",
-    2: "turn_off_controller_pwr",
-    3: "turn_on_controller",
-    3: "turn_off_controller",
-    4: "turn_on_drone",
-    4: "turn_off_drone",
-    11: "start_charging",
-    12: "stop_charging",
-    13: "start_controls",
-    14: "stop_controls",
+    "turn_on_controller_pwr": func1,
+    "turn_off_controller_pwr": func2,
+    "turn_on_controller": func3,
+    "turn_off_controller": func3,
+    "turn_on_drone": "func4",
+    "turn_off_drone": "func4",
+    "start_charging": "func11",
+    "stop_charging": "func12",
+    "start_controls": "func13",
+    "stop_controls": "func14",
 }
 
 # Function to process joystick data
@@ -268,6 +270,7 @@ def udp_listener():
 
 
 # Thread: TCP listener for numeric commands
+# Thread: TCP listener for numeric commands
 def tcp_listener():
     tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_sock.bind((TCP_IP, TCP_PORT))
@@ -287,10 +290,11 @@ def tcp_listener():
 
                 message = data.decode('utf-8')
                 print(f"Received command: {message}")
+                command = message
 
                 try:
-                    command = int(message)  # Try to parse the command as an integer
                     if command in commands:
+                        print("Running function {}".format(commands[command]))
                         commands[command]()  # Execute the associated command function
                     else:
                         print(f"Unknown command: {command}")
