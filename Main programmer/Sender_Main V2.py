@@ -173,17 +173,22 @@ def UDPfunc():
             sendNum = sendNum+1
             # Read the joystick and button states
             data = joy.read()
-
+            #print("Data is {}".format(type(data)))
             # Convert data to JSON string for sending over UDP
             message = json.dumps(data)
 
             # Send the JSON message via UDP, and prints every 5th time
             sock.sendto(message.encode('utf-8'), (IP, UDP_PORT))
             if sendNum%5 == 0:
-                print(f"\rSent: {message}",end = '', flush=True)  # Debugging: print the sent data
-            
+                #print(f"\rSent: {message}",end = '', flush=True)  # Debugging: print the sent data
+                try:  
+                    print("\rSent joystick positions: LeftY = {}, LeftX = {}, RightY = {}, RightX = {}".format(data['LeftJoystickY'], data["LeftJoystickX"], data["RightJoystickY"],data["RightJoystickX"]))
+                except Exception as Excp:
+                    print("Data is of typr none, exception is {}".format(Excp))
+
+
             # Stops overflow
-            if sendNum >1000:
+            if sendNum > 1000:
                 sendNUm = 0
 
             # Delay between each send to avoid flooding the network
@@ -248,7 +253,7 @@ def on_press(key):
     try:
         keyin = key.char
         global IsSending
-        print('{0} pressed'.format(
+        print('\n{0} pressed'.format(
             key))
         print(key.char)
         if key.char in commands:
