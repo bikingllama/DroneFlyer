@@ -12,7 +12,7 @@ global IsSending
 IsSending = False
 
 # Define UDP settings
-IP = "10.192.95.136"  # Replace with the receiver device's IP address
+IP = "10.193.50.157"  # Replace with the receiver device's IP address
 UDP_PORT = 5005
 
 # Define server settings (IP and Port should match the TCP server)
@@ -167,18 +167,24 @@ joy = XboxController(10000.0)
 
 # UDP joystick sender function
 def UDPfunc():
+    sendNum = 0
     while True:
         if IsSending:
+            sendNum = sendNum+1
             # Read the joystick and button states
             data = joy.read()
 
             # Convert data to JSON string for sending over UDP
             message = json.dumps(data)
 
-            # Send the JSON message via UDP
+            # Send the JSON message via UDP, and prints every 5th time
             sock.sendto(message.encode('utf-8'), (IP, UDP_PORT))
-
-            print(f"Sent: {message}")  # Debugging: print the sent data
+            if sendNum%5 == 0:
+                print(f"\rSent: {message}",end = '', flush=True)  # Debugging: print the sent data
+            
+            # Stops overflow
+            if sendNum >1000:
+                sendNUm = 0
 
             # Delay between each send to avoid flooding the network
             time.sleep(0.1)  # Adjust delay as needed
@@ -229,9 +235,54 @@ commands = {
     'm': "stop_charging",
     'x': "start_controls",
     "c": "stop_controls",
+
+
+
+    
 }
 
 
+
+# Start keyboard listener
+def on_press(key):
+    try:
+        keyin = key.char
+        global IsSending
+        print('{0} pressed'.format(
+            key))
+        print(key.char)
+        if key.char in commands:
+            print("Sent command: {}".format(commands[key.char]))
+            TCP_send_command(commands[key.char])
+        else:
+            print("Uknown key pressed: {0}".format(key))
+
+        if key.char == 'x':
+            IsSending = True
+        
+        if key.char == 'c':
+            IsSending = False
+
+        print("IsSending is " + str(IsSending))
+    except Exception as Excp:
+        print("No char associated with that key")
+
+def on_release(key):
+    nothing = 1
+    
+
+
+
+# Function to start the listener
+def start_listener():
+    with Listener(on_press=on_press, on_release=on_release) as listener:
+        listener.join()  # Blocks the thread it's in
+
+
+
+# Run the listener in a separate thread
+listener_thread = threading.Thread(target=start_listener, daemon=True)
+listener_thread.start()
 
 
 # Start UDP thread
@@ -240,36 +291,4 @@ udp_thread = threading.Thread(target=UDPfunc)
 udp_thread.start()
 
 udp_thread.join()
-
-
-
-# Start keyboard listener
-def on_press(key):
-    print('{0} pressed'.format(
-        key))
-    print(key.char)
-    if key.char in commands:
-        print("Sent command: {}".format(commands[key.char]))
-        TCP_send_command(key.char)
-    else:
-        print("Uknown key pressed: {0}".format(key))
-
-    if key.char == 'x':
-        IsSending = True
-    
-    if key.char == 'c':
-        IsSending = False
-
-    print("IsSending is " + str(IsSending))
-
-def on_release(key):
-    nothing = 1
-    
-
-# Collect events until released
-with Listener(
-        on_press=on_press,
-        on_release=on_release) as listener:
-    listener.join()
-
 
