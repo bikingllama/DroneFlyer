@@ -6,6 +6,9 @@ import RPi.GPIO as GPIO
 import spidev
 import numpy as np
 
+# WriteDelay, between each write operation
+global WriteDelay
+WriteDelay = 1
 
 # GPIO setup
 GPIO.setmode(GPIO.BOARD)  # Use board pins instead of the GPI index
@@ -22,6 +25,7 @@ CSR = 29
 CtrPwP = 36
 
 # Sets up pins and initial states
+GPIO.cleanup
 GPIO.setup(P8, GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(P10, GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(P12, GPIO.OUT, initial = GPIO.LOW)
@@ -52,15 +56,15 @@ TCP_IP = "0.0.0.0"
 TCP_PORT = 5006
 
 # Define statd bytes for both joysticks (neutral joystick positions). These are used for the failsafe.
-StdB1LHor = 3.85  # Standard first byte for left horizontal
-StdB1LVer = 3.9   # Standard first byte for left vertical
-StdB1RHor = 3.85 # Standard first byte for right horizontal
-StdB1RVer = 3.9  # Standard first byte for right vertical
+StdB1LHor = 0  # Standard first byte for left horizontal
+StdB1LVer = 0  # Standard first byte for left vertical
+StdB1RHor = 0 # Standard first byte for right horizontal
+StdB1RVer = 0  # Standard first byte for right vertical
 
-StdB2LHor = 3.85  # Standard second byte for left horizontal
-StdB2LVer = 3.9   # Standard second byte for left vertical
-StdB2RHor = 3.85 # Standard second byte for right horizontal
-StdB2RVer = 3.9  # Standard second byte for right vertical
+StdB2LHor = 143  # Standard second byte for left horizontal
+StdB2LVer = 147   # Standard second byte for left vertical
+StdB2RHor = 140 # Standard second byte for right horizontal
+StdB2RVer = 145  # Standard second byte for right vertical
 print("Joystick standard bytes not defined!")
 
 # Timeout threshold (in seconds) - No data for this long before using center values
@@ -188,13 +192,13 @@ def process_joystick_data(data):
 
 
 def WriteByte(Byte1, Byte2, CSLPin):
-	print("Sending {} and {} with CS pin {}".format(Byte1, Byte2, CSLPin))
-    
-	GPIO.output(CSLPin, GPIO.LOW)
-	Response = spi.xfer2([Byte1, Byte2])    # Send 2-byte SPI command
-	GPIO.output(CSLPin, GPIO.HIGH)
-	time.sleep(0.01)    # Wait so CS can be high for sure
-	print(f"Response is {Response}")
+    global WriteDelay
+    print("Sending {} and {} with CS pin {}".format(Byte1, Byte2, CSLPin))
+    GPIO.output(CSLPin, GPIO.LOW)
+    Response = spi.xfer2([Byte1, Byte2])    # Send 2-byte SPI command
+    GPIO.output(CSLPin, GPIO.HIGH)
+    time.sleep(WriteDelay)    # Wait so CS can be high for sure
+    print(f"Response is {Response}")
 
 
 
@@ -226,9 +230,10 @@ def udp_listener():
                 # If no data received within the timeout, use center values
                 print("Failsafe: No data received, using center values")
                 process_joystick_data({
-                    'LeftJoystickX': CENTER_X_LEFT, 'LeftJoystickY': CENTER_Y_LEFT,
-                    'RightJoystickX': CENTER_X_RIGHT, 'RightJoystickY': CENTER_Y_RIGHT
+                    'B1LHor': StdB1LHor, 'B2LHor': StdB2LHor, 'B1LVer': StdB1LVer,'B2LVer': StdB2LVer,
+                    'B1RHor': StdB1RHor, 'B2RHor': StdB2RHor, 'B1RVer': StdB1RVer, 'B2RVer': StdB2RVer
                 })
+
         else:
             time.sleep(0.1)
 
