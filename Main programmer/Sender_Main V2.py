@@ -130,14 +130,12 @@ ResIntAB = {
     4: 8306, #LVerA
     5: 242, #LVerB
     6: 8410, #RVerAB
-    
-    ## Guessed values
-    7: 7451, # RHorA
-    8: 421, #RHorB
-    9: 8530, #RHorAB
-    10: 8306, #RVerA
-    11: 242, #RVerB
-    12: 8410, #RVerAB
+    7: 7473, # RHorA
+    8: 422, #RHorB
+    9: 8430, #RHorAB
+    10: 7049, #RVerA
+    11: 465, #RVerB
+    12: 8390, #RVerAB
 }
 
 
@@ -150,11 +148,13 @@ def ByteBuilder(Dir, JoyPos):
 
     # Finds voltage
     Voltage = interpolate_voltage(Dir, JoyPos)
+    #print(f"Stuff is {Voltage}, {Dir}, {JoyPos}")
+    #time.sleep(1)
 
     # Finds needed resistance; RWB/RAB*3.56V = V;    RWB = V/3.56V*RAB
     RAB = ResIntAB[3*(Dir-1)+3]
     Res = (Voltage/3.3)*RAB
-
+    
 
     # Finds corresponding N-value:
     # R = A/256*x+B   (x=N)
@@ -163,6 +163,8 @@ def ByteBuilder(Dir, JoyPos):
     BVal = ResIntAB[(Dir-1)*3+2]
 
     N = int(np.floor((Res-BVal)*256/AVal))
+
+    #print(Dir, Res, N)
 
     # Checks if value for N is within range (0-255)
     if (N > 255 or N < 0):
@@ -216,37 +218,37 @@ def interpolate_voltage(Dir, pos):
     # For horizontal, top=left, bottom = min
 
     # Horizontal position (0 = left, 1 = right)
-    # Vertical position (0 = top, 1 = bottom)
+    # Vertical position (0 = bottom, 1 = top)
 
     # Interpolates in two ranges to ensure center value
 
     # LHor
     if Dir == 1:
         if pos <= 0.5:
-            IntV = 2.797 + 2*(1.774 - 2.797)*pos
+            IntV = 1.774 + 2*(2.797 - 1.774)*(0.5-pos)
         else:
-            IntV = 1.774 + 2*(0.914 - 1.774)*(pos-0.5)
+            IntV = 0.914 + 2*(1.774 - 0.914)*(1-pos)
     
     # LVer
     if Dir  == 2:
         if pos <= 0.5:
-            IntV = 1.764 + 2*(0.719 - 1.764)*pos
+            IntV = 1.764 + 2*(2.802 - 1.764)*(0.5-pos)
         else:
-            IntV = 2.802 + 2*(1.764 - 2.802)*(pos-0.5)
+            IntV = 0.719 + 2*(1.764 - 0.719)*(1-pos)
     
     # RHor
     if Dir == 3:
         if pos <=0.5:
-            IntV = 2.77 + 2*(1.775 - 2.77)*(pos)
+            IntV = 1.775 + 2*(2.77 - 1.775)*(0.5-pos)
         else:
-            IntV = 1.775 + 2*(0.737 - 1.775)*(pos-0.5)
+            IntV = 0.737 + 2*(1.775 - 0.737)*(1-pos)
 
     # RVer
     if Dir == 4:
         if pos <=0.5:
-            IntV = 2.692 + 2*(1.761 - 2.692)*pos
+            IntV = 1.761 + 2*(0.934 - 1.761)*(0.5-pos)
         else:
-            IntV = 1.761 + 2*(0.934 - 1.761)*(pos-0.5)
+            IntV = 1.761 + 2*(1.761 - 2.692)*(0.5-pos)
 
     if IntV == 0:
         print(f"Error! Interpolation returned 0!. Inputs were Dir = {Dir} and pos = {pos}. Returning center-ish value instead.")
