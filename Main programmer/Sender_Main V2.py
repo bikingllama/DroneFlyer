@@ -6,6 +6,7 @@ import math
 import threading
 import inputimeout
 from pynput.keyboard import Key, Listener # For registering keyboard inputs
+import numpy as np
 
 # True if the program should be sending joystick position information
 global IsSending
@@ -56,9 +57,6 @@ class XboxController(object):
         self._monitor_thread.start()
 
     def read(self):
-        # Apply the resistance conversion
-        left_resistance = self._convert_to_potentiometer_resistance(self.LeftJoystickX, self.LeftJoystickY)
-        right_resistance = self._convert_to_potentiometer_resistance(self.RightJoystickX, self.RightJoystickY)
 
         return {
             'LeftJoystickX': self.LeftJoystickX,
@@ -71,8 +69,6 @@ class XboxController(object):
             'RightBumper': self.RightBumper,
             'LeftTrigger': self.LeftTrigger,
             'RightTrigger': self.RightTrigger,
-            'LeftJoystickResistance': left_resistance,
-            'RightJoystickResistance': right_resistance
         }
 
     def _monitor_controller(self):
@@ -121,27 +117,27 @@ class XboxController(object):
                     self.DownDPad = event.state
 
 # Instantiate XboxController object with Rs = 10000 (10 kΩ)
-joy = XboxController(10000.0)
+joy = XboxController()
 
 
 
 
 # Values for resistor linear interpolation
 ResIntAB = {
-    'LHorA': 7451  #LHorA
-    'LHorB': 421   #LHorB
-    'LHorAB': 8530 #LHorAB
-    'LVerA': 8306 #LVerA
-    'LVerB': 242 #LVerB
-    'RVerAB': 8410 #RVerAB
+    1: 7451,  #LHorA
+    2: 421,   #LHorB
+    3: 8530, #LHorAB
+    4: 8306, #LVerA
+    5: 242, #LVerB
+    6: 8410, #RVerAB
     
     ## Guessed values
-    'RHorA': 7451
-    'RHorB': 421
-    'RHorAB': 8530
-    'RVerA': 8306
-    'RVerB': 242
-    'RVerAB': 8410
+    7: 7451, # RHorA
+    8: 421, #RHorB
+    9: 8530, #RHorAB
+    10: 8306, #RVerA
+    11: 242, #RVerB
+    12: 8410, #RVerAB
 }
 
 
@@ -150,44 +146,48 @@ ResIntAB = {
 def ByteBuilder(Dir, JoyPos):
     
     # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
-    # VnV determines if it writes to volatile or nonvolatile memory, 0 is volatile.
-    # The stick defines if its the left or right stick, 0 is left, 1 is right.
-    # The axis defines whether is up/down or sideways, 0 is horizontal, 1 is vertical.
+    # JoyPos is the corresponding position of the joystick between -1 and 1.
+
+    # Finds voltage
+    Voltage = interpolate_voltage(Dir, JoyPos)
+
+    # Finds needed resistance; RWB/RAB*3.56V = V;    RWB = V/3.56V*RAB
+    RAB = ResIntAB[3*(Dir-1)+3]
+    Res = (Voltage/3.3)*RAB
+
+
+    # Finds corresponding N-value:
+    # R = A/256*x+B   (x=N)
+    # N = (R-B)*256/A
+    AVal = ResIntAB[(Dir-1)*3+1]
+    BVal = ResIntAB[(Dir-1)*3+2]
+
+    N = int(np.floor((Res-BVal)*256/AVal))
+
+    # Checks if value for N is within range (0-255)
+    if (N > 255 or N < 0):
+        print("Error! Value for resistance is out of range at N = " + str(N))
+        if N > 255:
+            N = 255
+        if N < 0:
+            N = 0
     
+
     # Initializes double byte
     InitB = 0x8000
 
     # Defines that it needs to write
     CommandB = 0x00
 
-    # Defines which pot to write to
-    if Axis == 0:
-        AxisB = 0x00
-    elif Axis == 1:
-        AxisB = 0x1000
+    # Defines which wiper to write to
+    if Dir in [1,3]:
+        AxisB = 0b00000000
+    else:
+        AxisB = 0b00010000
 
-    # Defines whether to write to volatile or nonvolatile
-    if VnV == 0:
-        VnVB = 0x00
-    elif VnV == 1:
-        VnVB = 0x2000
-
-    # Converts value to integer to set pot to. Arbitratily rounded down. Uses linear approximation for digipot resistance
-    # R = A/256*x+B   (x=N)
-    # N = (R-B)*256/A
-    N = int(np.floor((Value-75)*256/10000))
-    N=0
-
-    # Checks if value for N is within range (0-256)
-    if (N > 256 or N < 0):
-        print("Error! Value for resistance is out of range at N = " + str(N))
-        if N > 256:
-            N = 256
-        if N < 0:
-            N = 0
 
     # Assembles byte
-    Byte = InitB | CommandB | AxisB | VnVB | N
+    Byte = InitB | CommandB | AxisB | N
 
     # Sets bit 16 and 9 to zero
     Byte = Byte & 0x7EFF
@@ -196,90 +196,100 @@ def ByteBuilder(Dir, JoyPos):
     Byte1 = Byte >> 8
     Byte2 = Byte & 0b11111111
     
-    return('Byte1': Byte1, 'Byte2': Byte2)
+    return Byte1, Byte2
 
 
 
-def conv_to_res(Dir, pos)
+def interpolate_voltage(Dir, pos):
     
     # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
     # pos: position of joystick between -1 and 1
     
     # Initialize interpolated voltage
-    IntV = 1.64
+    IntV = 0
     
     # Normalize position from -1 to 1 to 0 to 1
     pos = (pos + 1)/2
     
-    
-    
+    # Interpolations for pos <=0.5 giving highest voltage: VTop + 2*(VCenter - Vtop) * pos
+    # For pos >0.5 giving lowest voltage: VCenter + 2*(VBottom - VCenter) * (pos.0.5)
+    # For horizontal, top=left, bottom = min
+
+    # Horizontal position (0 = left, 1 = right)
+    # Vertical position (0 = top, 1 = bottom)
+
+    # Interpolates in two ranges to ensure center value
+
     # LHor
-    if Dir = 1
-        # Interpolates in two ranges
-        if pos <= 0.5
-            IntV = 
-            
-    
-    
-    
-
-'''
-def _convert_to_potentiometer_resistance(x, y, Rs):
-        # DJI controller potentiometer boundaries
-        AD1_top = 0.64       # Top position voltage for AD1
-        AD1_bottom = 2.28    # Bottom position voltage for AD1
-        AD1_center = 1.6     # Center voltage for AD1
-
-        AD0_left = 2.653     # Left position voltage for AD0
-        AD0_right = 0.88     # Right position voltage for AD0
-        AD0_center = 1.85    # Center voltage for AD0
-
-        # Normalize joystick input from -1..1 to 0..1
-        x_pos = (x + 1) / 2  # Horizontal position (0 = left, 1 = right)
-        y_pos = (y + 1) / 2  # Vertical position (0 = top, 1 = bottom)
-
-        # Interpolate for AD1 (vertical direction)
-        if y_pos < 0.5:
-            # Interpolate between top and center for y_pos in [0, 0.5]
-            AD1_interpolated = AD1_top + 2 * (AD1_center - AD1_top) * y_pos
+    if Dir == 1:
+        if pos <= 0.5:
+            IntV = 2.797 + 2*(1.774 - 2.797)*pos
         else:
-            # Interpolate between center and bottom for y_pos in (0.5, 1]
-            AD1_interpolated = AD1_center + 2 * (AD1_bottom - AD1_center) * (y_pos - 0.5)
-
-        # Interpolate for AD0 (horizontal direction)
-        if x_pos < 0.5:
-            # Interpolate between left and center for x_pos in [0, 0.5]
-            AD0_interpolated = AD0_left + 2 * (AD0_center - AD0_left) * x_pos
+            IntV = 1.774 + 2*(0.914 - 1.774)*(pos-0.5)
+    
+    # LVer
+    if Dir  == 2:
+        if pos <= 0.5:
+            IntV = 1.764 + 2*(0.719 - 1.764)*pos
         else:
-            # Interpolate between center and right for x_pos in (0.5, 1]
-            AD0_interpolated = AD0_center + 2 * (AD0_right - AD0_center) * (x_pos - 0.5)
+            IntV = 2.802 + 2*(1.764 - 2.802)*(pos-0.5)
+    
+    # RHor
+    if Dir == 3:
+        if pos <=0.5:
+            IntV = 2.77 + 2*(1.775 - 2.77)*(pos)
+        else:
+            IntV = 1.775 + 2*(0.737 - 1.775)*(pos-0.5)
 
-        # Convert interpolated voltages to resistances
-        RwR0 = (AD0_interpolated / 3.3) * Rs  # Resistance for AD0
-        RwR1 = (AD1_interpolated / 3.3) * Rs  # Resistance for AD1
+    # RVer
+    if Dir == 4:
+        if pos <=0.5:
+            IntV = 2.692 + 2*(1.761 - 2.692)*pos
+        else:
+            IntV = 1.761 + 2*(0.934 - 1.761)*(pos-0.5)
 
-        return {'RwR0': RwR0, 'RwR1': RwR1}
-'''
+    if IntV == 0:
+        print(f"Error! Interpolation returned 0!. Inputs were Dir = {Dir} and pos = {pos}. Returning center-ish value instead.")
+        IntV = 1.64
+    
+    return IntV
 
+
+def Joy2Bytes(datain):
+    B1LHor, B2LHor = ByteBuilder(1, datain['LeftJoystickX'])
+    B1LVer, B2LVer = ByteBuilder(2, datain['LeftJoystickY'])
+    B1RHor, B2RHor = ByteBuilder(3, datain['RightJoystickX'])
+    B1RVer, B2RVer = ByteBuilder(4, datain['RightJoystickY'])
+
+    return{
+        'B1LHor': B1LHor,
+        'B2LHor': B2LHor,
+        'B1LVer': B1LVer,
+        'B2LVer': B2LVer,
+        'B1RHor': B1RHor,
+        'B2RHor': B2RHor,
+        'B1RVer': B1RVer,
+        'B2RVer': B2RVer,
+    }
 
 
 
 # UDP joystick sender function
 def UDPfunc():
     sendNum = 0
+    global IsSending
     while True:
+        #print(IsSending)
         if IsSending:
             sendNum = sendNum+1
             # Read the joystick and button states
             data = joy.read()
-            #print("Data is {}".format(type(data)))
             
             # Convert joystick data to bytes
-            Joy2Bytes(data)
-            
+            senddata = Joy2Bytes(data)
             
             # Convert data to JSON string for sending over UDP
-            message = json.dumps(data)
+            message = json.dumps(senddata)
 
             # Send the JSON message via UDP, and prints every 5th time
             sock.sendto(message.encode('utf-8'), (IP, UDP_PORT))
@@ -287,8 +297,10 @@ def UDPfunc():
                 #print(f"\rSent: {message}",end = '', flush=True)  # Debugging: print the sent data
                 try:  
                     print("\rSent joystick positions: LeftY = {}, LeftX = {}, RightY = {}, RightX = {}".format(data['LeftJoystickY'], data["LeftJoystickX"], data["RightJoystickY"],data["RightJoystickX"]))
+                    print(f"Sent bytes: LHor {senddata['B1LHor']} {senddata['B2LHor']}, LVer {senddata['B1LVer']} {senddata['B2LVer']}, RHor {senddata['B1RHor']} {senddata['B2RHor']}, RVer {senddata['B1RVer']} {senddata['B2RVer']}")
+
                 except Exception as Excp:
-                    print("Data is of typr none, exception is {}".format(Excp))
+                    print("Data is of type none, exception is {}".format(Excp))
 
 
             # Stops overflow
@@ -297,8 +309,10 @@ def UDPfunc():
 
             # Delay between each send to avoid flooding the network
             time.sleep(0.1)  # Adjust delay as needed
+            print(f"Sent bytes: LHor {senddata['B1LHor']} {senddata['B2LHor']}, LVer {senddata['B1LVer']} {senddata['B2LVer']}, RHor {senddata['B1RHor']} {senddata['B2RHor']}, RVer {senddata['B1RVer']} {senddata['B2RVer']}")
         else:
             time.sleep(0.1)
+        
 
 
 
