@@ -12,8 +12,12 @@ import numpy as np
 global IsSending
 IsSending = False
 
+# How much delay there is between each UDP send
+global WriteDelay
+WriteDelay = 5
+
 # Define UDP settings
-IP = "10.193.50.157"  # Replace with the receiver device's IP address
+IP = "10.193.58.153"  # Replace with the receiver device's IP address
 UDP_PORT = 5005
 
 # Define server settings (IP and Port should match the TCP server)
@@ -183,10 +187,11 @@ def ByteBuilder(Dir, JoyPos):
 
     # Defines which wiper to write to
     if Dir in [1,3]:
-        AxisB = 0b00000000
+        AxisB = 0b0000000000000000
     else:
-        AxisB = 0b00010000
+        AxisB = 0b0001000000000000
 
+    print(f"Dir is {Dir} and AxisB is {AxisB}")
 
     # Assembles byte
     Byte = InitB | CommandB | AxisB | N
@@ -280,6 +285,7 @@ def Joy2Bytes(datain):
 def UDPfunc():
     sendNum = 0
     global IsSending
+    global WriteDelay
     while True:
         #print(IsSending)
         if IsSending:
@@ -313,7 +319,8 @@ def UDPfunc():
             time.sleep(0.1)  # Adjust delay as needed
             print(f"Sent bytes: LHor {senddata['B1LHor']} {senddata['B2LHor']}, LVer {senddata['B1LVer']} {senddata['B2LVer']}, RHor {senddata['B1RHor']} {senddata['B2RHor']}, RVer {senddata['B1RVer']} {senddata['B2RVer']}")
         else:
-            time.sleep(0.1)
+            time.sleep(3)
+        time.sleep(WriteDelay)
         
 
 
