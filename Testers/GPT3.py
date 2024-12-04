@@ -3,7 +3,7 @@ import time
 import RPi.GPIO as GPIO
 
 GPIO.setmode(GPIO.BOARD)
-GPIO.setup(29, GPIO.OUT, initial=GPIO.HIGH)
+GPIO.setup(31, GPIO.OUT, initial=GPIO.HIGH)
  
 # MCP4261 Registers
 VOL0_ADDR = 0x00  # Wiper 0
@@ -22,14 +22,14 @@ def set_wiper(address, value):
     value: 8-bit wiper position (0-255).
     """
     cmd = CMD_WRITE | address  # Combine command and address
-    GPIO.output(29,GPIO.LOW)
+    GPIO.output(31,GPIO.LOW)
     spi.xfer2([cmd, value])    # Send 2-byte SPI command
-    GPIO.output(29,GPIO.HIGH)
+    GPIO.output(31,GPIO.HIGH)
     print(f"Set wiper {address} to {value}")
  
 # Main loop
 try:
-    set_wiper(VOL0_ADDR, 250)  # Set POT0 to mid-scale
+    set_wiper(VOL0_ADDR, 128)  # Set POT0 to mid-scale
     time.sleep(1)
  
     set_wiper(VOL1_ADDR, 64)   # Set POT1 to a lower resistance

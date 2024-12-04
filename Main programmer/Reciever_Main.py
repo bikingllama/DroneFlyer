@@ -120,9 +120,9 @@ def UpdateResistance(VnV, Stick, Axis, Value):
     #Sends output
     try:
         print("First byte is {:08b} & second byte is {:08b}".format(Byte1, Byte2))
-        GPIO.output(31, GPIO.LOW)
+        GPIO.output(CurrOutPin, GPIO.LOW)
         Response = spi.xfer2([Byte1, Byte2])    # Send 2-byte SPI command
-        GPIO.output(31, GPIO.HIGH)
+        GPIO.output(CurrOutPin, GPIO.HIGH)
         time.sleep(0.01)
     except Exception as Excp:
         print("Exception when sending:\n")
@@ -201,9 +201,15 @@ def stop_charging():
     #    print(f"Error occurred while controlling the relay: {e}")
     print("Stop Charging Drone (not implemented)")
 
-def perform_special_task():
-    print("Performing other task (not implemented)")
+def func13():
+    # Starts control sending
+    global IsSending
+    IsSending = True
 
+def func14():
+    # Stops control sending
+    global IsSending
+    IsSending = False
 
 
 
@@ -214,12 +220,12 @@ commands = {
     "turn_off_controller_pwr": func2,
     "turn_on_controller": func3,
     "turn_off_controller": func3,
-    "turn_on_drone": "func4",
-    "turn_off_drone": "func4",
+    "turn_on_drone": func4,
+    "turn_off_drone": func4,
     "start_charging": "func11",
     "stop_charging": "func12",
-    "start_controls": "func13",
-    "stop_controls": "func14",
+    "start_controls": func13,
+    "stop_controls": func14,
 }
 
 # Function to process joystick data
