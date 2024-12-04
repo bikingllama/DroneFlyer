@@ -29,7 +29,7 @@ class XboxController(object):
     MAX_TRIG_VAL = math.pow(2, 8)
     MAX_JOY_VAL = math.pow(2, 15)
 
-    def __init__(self, Rs):
+    def __init__(self):
         self.LeftJoystickY = 0
         self.LeftJoystickX = 0
         self.RightJoystickY = 0
@@ -50,7 +50,6 @@ class XboxController(object):
         self.RightDPad = 0
         self.UpDPad = 0
         self.DownDPad = 0
-        self.Rs = Rs  # Series resistance
 
         self._monitor_thread = threading.Thread(target=self._monitor_controller, args=())
         self._monitor_thread.daemon = True
@@ -75,42 +74,6 @@ class XboxController(object):
             'LeftJoystickResistance': left_resistance,
             'RightJoystickResistance': right_resistance
         }
-
-    def _convert_to_potentiometer_resistance(self, x, y):
-        # DJI controller potentiometer boundaries
-        AD1_top = 0.64       # Top position voltage for AD1
-        AD1_bottom = 2.28    # Bottom position voltage for AD1
-        AD1_center = 1.6     # Center voltage for AD1
-
-        AD0_left = 2.653     # Left position voltage for AD0
-        AD0_right = 0.88     # Right position voltage for AD0
-        AD0_center = 1.85    # Center voltage for AD0
-
-        # Normalize joystick input from -1..1 to 0..1
-        x_pos = (x + 1) / 2  # Horizontal position (0 = left, 1 = right)
-        y_pos = (y + 1) / 2  # Vertical position (0 = top, 1 = bottom)
-
-        # Interpolate for AD1 (vertical direction)
-        if y_pos < 0.5:
-            # Interpolate between top and center for y_pos in [0, 0.5]
-            AD1_interpolated = AD1_top + 2 * (AD1_center - AD1_top) * y_pos
-        else:
-            # Interpolate between center and bottom for y_pos in (0.5, 1]
-            AD1_interpolated = AD1_center + 2 * (AD1_bottom - AD1_center) * (y_pos - 0.5)
-
-        # Interpolate for AD0 (horizontal direction)
-        if x_pos < 0.5:
-            # Interpolate between left and center for x_pos in [0, 0.5]
-            AD0_interpolated = AD0_left + 2 * (AD0_center - AD0_left) * x_pos
-        else:
-            # Interpolate between center and right for x_pos in (0.5, 1]
-            AD0_interpolated = AD0_center + 2 * (AD0_right - AD0_center) * (x_pos - 0.5)
-
-        # Convert interpolated voltages to resistances
-        RwR0 = (AD0_interpolated / 3.3) * self.Rs  # Resistance for AD0
-        RwR1 = (AD1_interpolated / 3.3) * self.Rs  # Resistance for AD1
-
-        return {'RwR0': RwR0, 'RwR1': RwR1}
 
     def _monitor_controller(self):
         while True:
@@ -163,6 +126,142 @@ joy = XboxController(10000.0)
 
 
 
+# Values for resistor linear interpolation
+ResIntAB = {
+    'LHorA': 7451  #LHorA
+    'LHorB': 421   #LHorB
+    'LHorAB': 8530 #LHorAB
+    'LVerA': 8306 #LVerA
+    'LVerB': 242 #LVerB
+    'RVerAB': 8410 #RVerAB
+    
+    ## Guessed values
+    'RHorA': 7451
+    'RHorB': 421
+    'RHorAB': 8530
+    'RVerA': 8306
+    'RVerB': 242
+    'RVerAB': 8410
+}
+
+
+
+# Builds bytes
+def ByteBuilder(Dir, JoyPos):
+    
+    # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
+    # VnV determines if it writes to volatile or nonvolatile memory, 0 is volatile.
+    # The stick defines if its the left or right stick, 0 is left, 1 is right.
+    # The axis defines whether is up/down or sideways, 0 is horizontal, 1 is vertical.
+    
+    # Initializes double byte
+    InitB = 0x8000
+
+    # Defines that it needs to write
+    CommandB = 0x00
+
+    # Defines which pot to write to
+    if Axis == 0:
+        AxisB = 0x00
+    elif Axis == 1:
+        AxisB = 0x1000
+
+    # Defines whether to write to volatile or nonvolatile
+    if VnV == 0:
+        VnVB = 0x00
+    elif VnV == 1:
+        VnVB = 0x2000
+
+    # Converts value to integer to set pot to. Arbitratily rounded down. Uses linear approximation for digipot resistance
+    # R = A/256*x+B   (x=N)
+    # N = (R-B)*256/A
+    N = int(np.floor((Value-75)*256/10000))
+    N=0
+
+    # Checks if value for N is within range (0-256)
+    if (N > 256 or N < 0):
+        print("Error! Value for resistance is out of range at N = " + str(N))
+        if N > 256:
+            N = 256
+        if N < 0:
+            N = 0
+
+    # Assembles byte
+    Byte = InitB | CommandB | AxisB | VnVB | N
+
+    # Sets bit 16 and 9 to zero
+    Byte = Byte & 0x7EFF
+    
+    # Splits byte into two eights
+    Byte1 = Byte >> 8
+    Byte2 = Byte & 0b11111111
+    
+    return('Byte1': Byte1, 'Byte2': Byte2)
+
+
+
+def conv_to_res(Dir, pos)
+    
+    # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
+    # pos: position of joystick between -1 and 1
+    
+    # Initialize interpolated voltage
+    IntV = 1.64
+    
+    # Normalize position from -1 to 1 to 0 to 1
+    pos = (pos + 1)/2
+    
+    
+    
+    # LHor
+    if Dir = 1
+        # Interpolates in two ranges
+        if pos <= 0.5
+            IntV = 
+            
+    
+    
+    
+
+'''
+def _convert_to_potentiometer_resistance(x, y, Rs):
+        # DJI controller potentiometer boundaries
+        AD1_top = 0.64       # Top position voltage for AD1
+        AD1_bottom = 2.28    # Bottom position voltage for AD1
+        AD1_center = 1.6     # Center voltage for AD1
+
+        AD0_left = 2.653     # Left position voltage for AD0
+        AD0_right = 0.88     # Right position voltage for AD0
+        AD0_center = 1.85    # Center voltage for AD0
+
+        # Normalize joystick input from -1..1 to 0..1
+        x_pos = (x + 1) / 2  # Horizontal position (0 = left, 1 = right)
+        y_pos = (y + 1) / 2  # Vertical position (0 = top, 1 = bottom)
+
+        # Interpolate for AD1 (vertical direction)
+        if y_pos < 0.5:
+            # Interpolate between top and center for y_pos in [0, 0.5]
+            AD1_interpolated = AD1_top + 2 * (AD1_center - AD1_top) * y_pos
+        else:
+            # Interpolate between center and bottom for y_pos in (0.5, 1]
+            AD1_interpolated = AD1_center + 2 * (AD1_bottom - AD1_center) * (y_pos - 0.5)
+
+        # Interpolate for AD0 (horizontal direction)
+        if x_pos < 0.5:
+            # Interpolate between left and center for x_pos in [0, 0.5]
+            AD0_interpolated = AD0_left + 2 * (AD0_center - AD0_left) * x_pos
+        else:
+            # Interpolate between center and right for x_pos in (0.5, 1]
+            AD0_interpolated = AD0_center + 2 * (AD0_right - AD0_center) * (x_pos - 0.5)
+
+        # Convert interpolated voltages to resistances
+        RwR0 = (AD0_interpolated / 3.3) * Rs  # Resistance for AD0
+        RwR1 = (AD1_interpolated / 3.3) * Rs  # Resistance for AD1
+
+        return {'RwR0': RwR0, 'RwR1': RwR1}
+'''
+
+
 
 
 # UDP joystick sender function
@@ -174,6 +273,11 @@ def UDPfunc():
             # Read the joystick and button states
             data = joy.read()
             #print("Data is {}".format(type(data)))
+            
+            # Convert joystick data to bytes
+            Joy2Bytes(data)
+            
+            
             # Convert data to JSON string for sending over UDP
             message = json.dumps(data)
 
@@ -240,10 +344,6 @@ commands = {
     'm': "stop_charging",
     'x': "start_controls",
     "c": "stop_controls",
-
-
-
-    
 }
 
 

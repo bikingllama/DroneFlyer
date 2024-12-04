@@ -51,11 +51,17 @@ UDP_PORT = 5005
 TCP_IP = "0.0.0.0"
 TCP_PORT = 5006
 
-# Define center values for both joysticks (neutral joystick positions). These are used for the failsafe.
-CENTER_X_LEFT = 3.85  # Center value for X joystick (AD0 for left)
-CENTER_Y_LEFT = 3.9   # Center value for Y joystick (AD1 for left)
-CENTER_X_RIGHT = 3.85 # Center value for X joystick (AD0 for right)
-CENTER_Y_RIGHT = 3.9  # Center value for Y joystick (AD1 for right)
+# Define statd bytes for both joysticks (neutral joystick positions). These are used for the failsafe.
+StdB1LHor = 3.85  # Standard first byte for left horizontal
+StdB1LVer = 3.9   # Standard first byte for left vertical
+StdB1RHor = 3.85 # Standard first byte for right horizontal
+StdB1RVer = 3.9  # Standard first byte for right vertical
+
+StdB2LHor = 3.85  # Standard second byte for left horizontal
+StdB2LVer = 3.9   # Standard second byte for left vertical
+StdB2RHor = 3.85 # Standard second byte for right horizontal
+StdB2RVer = 3.9  # Standard second byte for right vertical
+print("Joystick standard bytes not defined!")
 
 # Timeout threshold (in seconds) - No data for this long before using center values
 TIMEOUT = 1.0  # seconds
@@ -158,20 +164,40 @@ commands = {
 
 # Function to process joystick data
 def process_joystick_data(data):
-    LeftJoystickX = data.get('LeftJoystickX', CENTER_X_LEFT)  # Default to center value if missing
-    LeftJoystickY = data.get('LeftJoystickY', CENTER_Y_LEFT)  # Default to center value if missing
 
-    RightJoystickX = data.get('RightJoystickX', CENTER_X_RIGHT)  # Default to center value if missing
-    RightJoystickY = data.get('RightJoystickY', CENTER_Y_RIGHT)  # Default to center value if missing
+    # Set to defaults if no data recieved
+    B1LHor = data.get('B1LHor', StdB1LHor)  
+    B1LVer = data.get('B1LVer', StdB1LVer)  
+    B1RHor = data.get('B1RHor', StdB1RHor)  
+    B1RVer = data.get('B1RVer', StdB1RVer)
+    
+    B2LHor = data.get('B2LHor', StdB2LHor)  
+    B2LVer = data.get('B2LVer', StdB2LVer)  
+    B2RHor = data.get('B2RHor', StdB2RHor)  
+    B2RVer = data.get('B2RVer', StdB2RVer)
 
-    print(f"Received Left Joystick -> X: {LeftJoystickX:.2f}, Y: {LeftJoystickY:.2f}")
-    print(f"Received Right Joystick -> X: {RightJoystickX:.2f}, Y: {RightJoystickY:.2f}")
+    print("Recieved bytes {B1LHor:08b} {B2LHor:08b}, {B1LVer:08b} {B2LVer:08b}, {B1RHor:08b} {B2RHor:08b}, {B1RVer:08b} {B2Rver:08b}")
+    
+    # Send to bytesender
+    WriteByte(B1LHor, B2LHor, CSL)
+    WriteByte(B1LVer, B2LVer, CSL)
+    WriteByte(B1RHor, B2RHor, CSR)
+    WriteByte(B1RVer, B2RVer, CSR)
     
     
-    # Converts joystick position to resistance
-    
 
-    #UpdateResistance(0,)
+
+def WriteByte(Byte1, Byte2, CSLPin):
+	print("Sending {} and {} with CS pin {}".format(Byte1, Byte2, CSLPin))
+    
+	GPIO.output(CSLPin, GPIO.LOW)
+	Response = spi.xfer2([Byte1, Byte2])    # Send 2-byte SPI command
+	GPIO.output(CSLPin, GPIO.HIGH)
+	time.sleep(0.01)    # Wait so CS can be high for sure
+	print(f"Response is {Response}")
+
+
+
 
 
 # Thread: UDP listener for joystick data
