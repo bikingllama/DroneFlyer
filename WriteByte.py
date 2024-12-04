@@ -23,17 +23,17 @@ spi.max_speed_hz = 10**6
 
 
 
-def WriteByte(Byte1, Byte2):
+def WriteByte(CurrCS, Byte1, Byte2):
 	print("Sending {} and {}".format(Byte1, Byte2))
-	GPIO.output(31, GPIO.LOW)
+	GPIO.output(CurrCS, GPIO.LOW)
 	Response = spi.xfer2([Byte1, Byte2])    # Send 2-byte SPI command
-	GPIO.output(31, GPIO.HIGH)
+	GPIO.output(CurrCS, GPIO.HIGH)
 	time.sleep(0.01)
 	print(Response)
     
     
 
-N = 255
-WriteByte(0b00010000, N)
+N = 112
+WriteByte(CSR, 0b00000000, N)
 #time.sleep(3)
 #WriteByte(0b00000000,0b00000000)
