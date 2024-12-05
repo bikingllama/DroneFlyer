@@ -8,13 +8,7 @@ import inputimeout
 from pynput.keyboard import Key, Listener # For registering keyboard inputs
 import numpy as np
 
-# True if the program should be sending joystick position information
-global IsSending
-IsSending = False
-
-# How much delay there is between each UDP send
-global WriteDelay
-WriteDelay = 0.2
+## Settings
 
 # Define UDP settings
 IP = "10.193.58.153"  # Replace with the receiver device's IP address
@@ -24,9 +18,22 @@ UDP_PORT = 5005
 SERVER_IP = IP  # Replace with the actual server IP
 SERVER_PORT = 5006  # Port number defined for TCP in the server
 
+# The bigger this value is, the bigger the range of inputs that it just sets to center. Recommended no bigger than 12
+global CenterRange
+CenterRange = 7
+
+## End of setting
+
 # Create a UDP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+# True if the program should be sending joystick position information
+global IsSending
+IsSending = False
+
+# How much delay there is between each UDP send
+global WriteDelay
+WriteDelay = 0.2
 
 
 
@@ -128,20 +135,29 @@ joy = XboxController()
 # Builds bytes
 def ByteBuilder(Dir, JoyPos):
     
+    global CenterRange
+
     # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
     # JoyPos is the corresponding position of the joystick between -1 and 1.
 
     # Finds interpolated N-values
 
-    N = N_interpolator(Dir, JoyPos)
+    N = N_interpolater(Dir, JoyPos)
 
-    # Checks if value for N is within range (0-255)
-    if (N > 255 or N < 0):
+    # Converts N to int
+    N = int(np.round(N))
+
+    # Checks if value for N is within range (20-240)
+    if (N > 240 or N < 20):
         print("Error! Value for resistance is out of range at N = " + str(N))
-        if N > 255:
-            N = 255
-        if N < 0:
-            N = 0
+        if N > 240:
+            N = 240
+        if N < 20:
+            N = 20
+    
+    # Rounds to center
+    if (N + CenterRange > 145 | N-CenterRange < 145):
+        N = 145
     
 
     # Initializes double byte
@@ -176,18 +192,18 @@ def ByteBuilder(Dir, JoyPos):
 
 # Values for N-interpolation
 NVals = {
-    1: 185,  #LHorL
+    1: 185*1.2,  #LHorL
     2: 145,   #LHorC
-    3: 65, #LHorR
-    4: 113, #LVerD
+    3: 65/1.2, #LHorR
+    4: 217*1.2, #LVerD
     5: 145, #LVerC
-    6: 217, #LVerU
-    7: 185, # RHorL
+    6: 113/1.2, #LVerU
+    7: 185*1.2, # RHorL
     8: 145, #RHorC
-    9: 65, #RHorR
-    10: 113, #RVerD
+    9: 65/1.2, #RHorR
+    10: 113/1.2, #RVerD
     11: 145, #RVerC
-    12: 217, #RVerU
+    12: 217*1.2, #RVerU
 }
 
 
@@ -239,63 +255,6 @@ def N_interpolater(Dir, pos):
     return Nout
 
 
-
-
-'''
-def interpolate_voltage(Dir, pos):
-    
-    # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
-    # pos: position of joystick between -1 and 1
-    
-    # Initialize interpolated voltage
-    IntV = 0
-    
-    # Normalize position from -1 to 1 to 0 to 1
-    pos = (pos + 1)/2
-    
-    # Interpolations for pos <=0.5 giving highest voltage: VTop + 2*(VCenter - Vtop) * pos
-    # For pos >0.5 giving lowest voltage: VCenter + 2*(VBottom - VCenter) * (pos.0.5)
-    # For horizontal, top=left, bottom = min
-
-    # Horizontal position (0 = left, 1 = right)
-    # Vertical position (0 = bottom, 1 = top)
-
-    # Interpolates in two ranges to ensure center value
-
-    # LHor
-    if Dir == 1:
-        if pos <= 0.5:
-            IntV = 1.774 + 2*(2.797 - 1.774)*(0.5-pos)
-        else:
-            IntV = 0.914 + 2*(1.774 - 0.914)*(1-pos)
-    
-    # LVer
-    if Dir  == 2:
-        if pos <= 0.5:
-            IntV = 1.764 + 2*(2.802 - 1.764)*(0.5-pos)
-        else:
-            IntV = 0.719 + 2*(1.764 - 0.719)*(1-pos)
-    
-    # RHor
-    if Dir == 3:
-        if pos <=0.5:
-            IntV = 1.775 + 2*(2.77 - 1.775)*(0.5-pos)
-        else:
-            IntV = 0.737 + 2*(1.775 - 0.737)*(1-pos)
-
-    # RVer
-    if Dir == 4:
-        if pos <=0.5:
-            IntV = 1.761 + 2*(0.934 - 1.761)*(0.5-pos)
-        else:
-            IntV = 1.761 + 2*(1.761 - 2.692)*(0.5-pos)
-
-    if IntV == 0:
-        print(f"Error! Interpolation returned 0!. Inputs were Dir = {Dir} and pos = {pos}. Returning center-ish value instead.")
-        IntV = 1.64
-    
-    return IntV
-'''
 
 
 def Joy2Bytes(datain):
@@ -434,16 +393,6 @@ def on_press(key):
 def on_release(key):
     nothing = 1
     
-
-print(N_interpolater(1, -0.5))
-print(N_interpolater(1, 0.5))
-print(N_interpolater(2, -0.5))
-print(N_interpolater(2, 0.5))
-print(N_interpolater(3, -0.5))
-print(N_interpolater(3, 0.5))
-print(N_interpolater(4, -0.5))
-print(N_interpolater(4, 0.5))
-
 
 
 # Function to start the listener
