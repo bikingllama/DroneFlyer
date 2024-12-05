@@ -1,7 +1,3 @@
-
-
-
-
 import spidev
 import numpy as np
 import RPi.GPIO as GPIO
@@ -30,10 +26,11 @@ def WriteByte(CurrCS, Byte1, Byte2):
 	GPIO.output(CurrCS, GPIO.HIGH)
 	time.sleep(0.01)
 	print(Response)
-    
+		
     
 
 N = 145
+WriteByte(CSL, 0b00000000, N)
+WriteByte(CSL, 0b00010000, N)
 WriteByte(CSR, 0b00000000, N)
-#time.sleep(3)
-#WriteByte(0b00000000,0b00000000)
+WriteByte(CSR, 0b00010000, N)
