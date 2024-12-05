@@ -33,7 +33,7 @@ IsSending = False
 
 # How much delay there is between each UDP send
 global WriteDelay
-WriteDelay = 0.2
+WriteDelay = 0.125
 
 
 
