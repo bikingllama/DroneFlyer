@@ -8,7 +8,7 @@ import numpy as np
 
 # WriteDelay, between each write operation
 global WriteDelay
-WriteDelay = 1
+WriteDelay = 0.05
 
 # GPIO setup
 GPIO.setmode(GPIO.BOARD)  # Use board pins instead of the GPI index
@@ -67,8 +67,8 @@ StdB2RHor = 140 # Standard second byte for right horizontal
 StdB2RVer = 145  # Standard second byte for right vertical
 print("Joystick standard bytes not defined!")
 
-# Timeout threshold (in seconds) - No data for this long before using center values
-TIMEOUT = 1.0  # seconds
+# Timeout threshold (in seconds) - No data for this long before cycling
+TIMEOUT = 0.3  # seconds
 
 
 
@@ -211,9 +211,14 @@ def udp_listener():
     udp_sock.settimeout(TIMEOUT)  # Set a timeout for failsafe operation
     print(f"Listening for joystick data on UDP {UDP_IP}:{UDP_PORT}")
 
+    # Initialize last received time and last data, sendnumber
     last_received_time = time.time()
+    last_data = {'B1LHor': StdB1LHor, 'B2LHor': StdB2LHor, 'B1LVer': StdB1LVer,'B2LVer': StdB2LVer,
+                'B1RHor': StdB1RHor, 'B2RHor': StdB2RHor, 'B1RVer': StdB1RVer, 'B2RVer': StdB2RVer}
+    send_number = 0
 
     while True:
+        checktime = time.time()
         if IsSending:
             try:
                 data, addr = udp_sock.recvfrom(1024)  # Buffer size of 1024 bytes
@@ -222,17 +227,29 @@ def udp_listener():
                 try:
                     decoded_data = json.loads(message)
                     last_received_time = time.time()  # Update the last received time
+                    last_data = decoded_data # Update last_data
                     process_joystick_data(decoded_data)
+
+                    # Print every tenth
+                    send_number = send_number+1
+                    if send_number % 10 == 0:
+                        print(f"Received data {decoded_data}")
+                    # Stops overflow
+                    if send_number > 1000:
+                        send_number = 0
                 except json.JSONDecodeError:
                     print(f"Invalid joystick data received: {message}")
 
             except socket.timeout:
-                # If no data received within the timeout, use center values
-                print("Failsafe: No data received, using center values")
-                process_joystick_data({
-                    'B1LHor': StdB1LHor, 'B2LHor': StdB2LHor, 'B1LVer': StdB1LVer,'B2LVer': StdB2LVer,
-                    'B1RHor': StdB1RHor, 'B2RHor': StdB2RHor, 'B1RVer': StdB1RVer, 'B2RVer': StdB2RVer
-                })
+                # If no data received within the timeout, use center values if time between commands is more than 0.25 seconds
+                if time.time()-last_received_time < 0.25:
+                    time.sleep(0.05)
+                else:
+                    print("Time from last received data > 0.25 seconds, using center values")
+                    process_joystick_data({
+                        'B1LHor': StdB1LHor, 'B2LHor': StdB2LHor, 'B1LVer': StdB1LVer,'B2LVer': StdB2LVer,
+                        'B1RHor': StdB1RHor, 'B2RHor': StdB2RHor, 'B1RVer': StdB1RVer, 'B2RVer': StdB2RVer
+                    })
 
         else:
             time.sleep(0.1)

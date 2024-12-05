@@ -125,50 +125,15 @@ joy = XboxController()
 
 
 
-
-# Values for resistor linear interpolation
-ResIntAB = {
-    1: 7451,  #LHorA
-    2: 421,   #LHorB
-    3: 8530, #LHorAB
-    4: 8306, #LVerA
-    5: 242, #LVerB
-    6: 8410, #RVerAB
-    7: 7473, # RHorA
-    8: 422, #RHorB
-    9: 8430, #RHorAB
-    10: 7049, #RVerA
-    11: 465, #RVerB
-    12: 8390, #RVerAB
-}
-
-
-
 # Builds bytes
 def ByteBuilder(Dir, JoyPos):
     
     # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
     # JoyPos is the corresponding position of the joystick between -1 and 1.
 
-    # Finds voltage
-    Voltage = interpolate_voltage(Dir, JoyPos)
-    #print(f"Stuff is {Voltage}, {Dir}, {JoyPos}")
-    #time.sleep(1)
+    # Finds interpolated N-values
 
-    # Finds needed resistance; RWB/RAB*3.56V = V;    RWB = V/3.56V*RAB
-    RAB = ResIntAB[3*(Dir-1)+3]
-    Res = (Voltage/3.3)*RAB
-    
-
-    # Finds corresponding N-value:
-    # R = A/256*x+B   (x=N)
-    # N = (R-B)*256/A
-    AVal = ResIntAB[(Dir-1)*3+1]
-    BVal = ResIntAB[(Dir-1)*3+2]
-
-    N = int(np.floor((Res-BVal)*256/AVal))
-
-    #print(Dir, Res, N)
+    N = N_interpolator(Dir, JoyPos)
 
     # Checks if value for N is within range (0-255)
     if (N > 255 or N < 0):
@@ -207,6 +172,76 @@ def ByteBuilder(Dir, JoyPos):
 
 
 
+
+
+# Values for N-interpolation
+NVals = {
+    1: 185,  #LHorL
+    2: 145,   #LHorC
+    3: 65, #LHorR
+    4: 113, #LVerD
+    5: 145, #LVerC
+    6: 217, #LVerU
+    7: 185, # RHorL
+    8: 145, #RHorC
+    9: 65, #RHorR
+    10: 113, #RVerD
+    11: 145, #RVerC
+    12: 217, #RVerU
+}
+
+
+
+
+def N_interpolater(Dir, pos):
+    # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
+    # pos: position of joystick between -1 and 1
+
+    # Initialize N-output
+    Nout = 0
+
+    # Normalize position from -1 to 1 to 0 to 1
+    pos = (pos + 1)/2 
+
+    # Interpolates with correct values.
+    # LHor
+    if Dir == 1:
+        if pos <= 0.5:
+            Nout = NVals[2] + 2*(NVals[1] - NVals[2])*(0.5-pos)
+        else:
+            Nout = NVals[2] + 2*(NVals[2] - NVals[3])*(0.5-pos)
+    
+    # LVer
+    if Dir  == 2:
+        if pos <= 0.5:
+            Nout = NVals[5] + 2*(NVals[4] - NVals[5])*(0.5-pos)
+        else:
+            Nout = NVals[5] + 2*(NVals[5] - NVals[6])*(0.5-pos)
+    
+    # RHor
+    if Dir == 3:
+        if pos <=0.5:
+            Nout = NVals[8] + 2*(NVals[7] - NVals[8])*(0.5-pos)
+        else:
+            Nout = NVals[8] + 2*(NVals[8] - NVals[9])*(0.5-pos)
+
+    # RVer
+    if Dir == 4:
+        if pos <=0.5:
+            Nout = NVals[11] + 2*(NVals[10] - NVals[11])*(0.5-pos)
+        else:
+            Nout = NVals[11] + 2*(NVals[11] - NVals[12])*(0.5-pos)
+
+    if Nout == 0:
+        print(f"Error! Interpolation returned 0!. Inputs were Dir = {Dir} and pos = {pos}. Returning center-ish value instead.")
+        Nout = 145
+    
+    return Nout
+
+
+
+
+'''
 def interpolate_voltage(Dir, pos):
     
     # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
@@ -260,6 +295,7 @@ def interpolate_voltage(Dir, pos):
         IntV = 1.64
     
     return IntV
+'''
 
 
 def Joy2Bytes(datain):
@@ -398,6 +434,15 @@ def on_press(key):
 def on_release(key):
     nothing = 1
     
+
+print(N_interpolater(1, -0.5))
+print(N_interpolater(1, 0.5))
+print(N_interpolater(2, -0.5))
+print(N_interpolater(2, 0.5))
+print(N_interpolater(3, -0.5))
+print(N_interpolater(3, 0.5))
+print(N_interpolater(4, -0.5))
+print(N_interpolater(4, 0.5))
 
 
 
