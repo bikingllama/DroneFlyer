@@ -22,7 +22,7 @@ P18 = 18
 P22 = 22
 CSL = 31
 CSR = 29
-CtrPwP = 36
+CtrPwrP = 36
 
 # Sets up pins and initial states
 GPIO.cleanup
@@ -34,7 +34,7 @@ GPIO.setup(P18, GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(P22, GPIO.OUT, initial = GPIO.LOW)
 GPIO.setup(CSL, GPIO.OUT, initial = GPIO.HIGH)
 GPIO.setup(CSR, GPIO.OUT, initial = GPIO.HIGH)
-GPIO.setup(CtrPwP, GPIO.OUT, initial = GPIO.LOW)
+GPIO.setup(CtrPwrP, GPIO.OUT, initial = GPIO.LOW)
 
 # SPI setup
 # Setup SPI
@@ -57,35 +57,23 @@ TCP_PORT = 5006
 
 # Define statd bytes for both joysticks (neutral joystick positions). These are used for the failsafe.
 StdB1LHor = 0  # Standard first byte for left horizontal
-StdB1LVer = 0  # Standard first byte for left vertical
+StdB1LVer = 16  # Standard first byte for left vertical
 StdB1RHor = 0 # Standard first byte for right horizontal
-StdB1RVer = 0  # Standard first byte for right vertical
+StdB1RVer = 16  # Standard first byte for right vertical
 
 StdB2LHor = 143  # Standard second byte for left horizontal
 StdB2LVer = 147   # Standard second byte for left vertical
 StdB2RHor = 140 # Standard second byte for right horizontal
 StdB2RVer = 145  # Standard second byte for right vertical
-print("Joystick standard bytes not defined!")
 
 # Timeout threshold (in seconds) - No data for this long before cycling
 TIMEOUT = 0.3  # seconds
 
 
-
-# This function updates the value for one of the resistors.
-# VnV determines if it writes to volatile or nonvolatile memory, 0 is volatile.
-# The stick defines if its the left or right stick, 0 is left, 1 is right.
-# The axis defines whether is up/down or sideways, 0 is horizontal, 1 is vertical.
-
-
-
-
-
-
 # Define functions for the TCP actions
 def func1():
     # Turns on power for controller
-    GPIO.output(CtrPwP, GPIO.HIGH)
+    GPIO.output(CtrPwrP, GPIO.HIGH)
     print("Controller turned on (not implemented!)")
 
 def func2():
@@ -229,6 +217,8 @@ def udp_listener():
                     last_received_time = time.time()  # Update the last received time
                     last_data = decoded_data # Update last_data
                     process_joystick_data(decoded_data)
+                    
+                    print(f"Received data at {time.time()}")
 
                     # Print every tenth
                     send_number = send_number+1
@@ -242,6 +232,7 @@ def udp_listener():
 
             except socket.timeout:
                 # If no data received within the timeout, use center values if time between commands is more than 0.25 seconds
+                print(time.time()-last_received_time)
                 if time.time()-last_received_time < 0.25:
                     time.sleep(0.05)
                 else:
@@ -292,6 +283,15 @@ def tcp_listener():
 
         conn.close()
 
+
+
+## End of functions. Start of main program:
+
+# Resets digipot values
+WriteByte(0b00000000, 145, CSL)
+WriteByte(0b00010000, 145, CSL)
+WriteByte(0b00000000, 145, CSR)
+WriteByte(0b00010000, 145, CSR)
 
 # Start both UDP and TCP listeners in separate threads
 udp_thread = threading.Thread(target=udp_listener)
