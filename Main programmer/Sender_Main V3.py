@@ -22,6 +22,13 @@ SERVER_PORT = 5006  # Port number defined for TCP in the server
 global CenterRange
 CenterRange = 7
 
+# Precision mode scaling. If precision mode is enabled, the input magnitude is divided by this, and centering is turned off.
+global PrecisionScaling
+PrecisionScaling = 3
+
+global PrecisionMode
+PrecisionMode = False
+
 ## End of setting
 
 # Create a UDP socket
@@ -136,6 +143,10 @@ joy = XboxController()
 def ByteBuilder(Dir, JoyPos):
     
     global CenterRange
+    global PrecisionMode
+
+    if PrecisionMode:
+        JoyPos = JoyPos/3
 
     # Dir: 1 = LHor, 2 = LVer, 3=RHor, 4=RVer
     # JoyPos is the corresponding position of the joystick between -1 and 1.
@@ -156,7 +167,7 @@ def ByteBuilder(Dir, JoyPos):
             N = 20
     
     # Rounds to center
-    if (N + CenterRange > 145 | N-CenterRange < 145):
+    if ((N + CenterRange >= 145 | N-CenterRange <= 145) & (not PrecisionMode)):
         N = 145
     
 
@@ -216,7 +227,7 @@ def N_interpolater(Dir, pos):
     # Initialize N-output
     Nout = 0
 
-    # Normalize position from -1 to 1 to 0 to 1
+    # Normalize position from -1 to 1 to 0 to 19ty
     pos = (pos + 1)/2 
 
     # Interpolates with correct values.
@@ -361,7 +372,7 @@ commands = {
     'n': "start_charging",
     'm': "stop_charging",
     'x': "start_controls",
-    "c": "stop_controls",
+    'c': "stop_controls",
 }
 
 
@@ -371,22 +382,35 @@ def on_press(key):
     try:
         keyin = key.char
         global IsSending
+        global PrecisionMode
+
+
         print('\n{0} pressed'.format(
             key))
         print(key.char)
+
+        if key.char == 'c':
+            IsSending = False
+            print("Stopping control sending")
+
         if key.char in commands:
             print("Sent command: {}".format(commands[key.char]))
             TCP_send_command(commands[key.char])
         else:
-            print("Uknown key pressed: {0}".format(key))
+            if key.char not in ['x', 'c', 'k', 'l']:
+                print("Uknown key pressed: {0}".format(key))
 
         if key.char == 'x':
             IsSending = True
+            print("Starting control sending")
         
-        if key.char == 'c':
-            IsSending = False
+        
 
-        print("IsSending is " + str(IsSending))
+        if key.char == 'k':
+            PrecisionMode = not PrecisionMode
+            print(f"Precisionmode is {PrecisionMode}")
+
+
     except Exception as Excp:
         print("No char associated with that key")
 
